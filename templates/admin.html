@@ -1,0 +1,251 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>PSI Admin</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --accent: #38bdf8;
+      --accent-2: #22c55e;
+      --shadow: 0 15px 60px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(34,197,94,0.10), transparent 30%),
+                  radial-gradient(circle at 80% 0%, rgba(56,189,248,0.12), transparent 28%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 18px 48px;
+    }
+    .shell {
+      width: min(1080px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 22px;
+      box-shadow: var(--shadow);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 14px;
+      margin-bottom: 14px;
+    }
+    h1 { margin: 0; font-size: 24px; letter-spacing: -0.02em; }
+    .muted { color: var(--muted); font-size: 14px; }
+    .pill {
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(56,189,248,0.12);
+      color: var(--accent);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      font-size: 13px;
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 14px;
+      background: rgba(255,255,255,0.02);
+      margin-top: 12px;
+    }
+    .form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .form-grid label { display: flex; flex-direction: column; gap: 6px; font-size: 13px; color: var(--muted); }
+    input, select { padding: 10px 12px; border-radius: 10px; border: 1px solid var(--border); background: #0b1220; color: var(--text); }
+    input[type="file"] { padding: 8px 0; }
+    table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+    th, td { padding: 10px 8px; text-align: left; border-bottom: 1px solid var(--border); }
+    th { color: var(--muted); font-weight: 600; font-size: 13px; }
+    td { font-size: 14px; }
+    .badge { display: inline-flex; align-items: center; padding: 4px 8px; border-radius: 999px; background: rgba(34,197,94,0.12); color: var(--accent-2); font-size: 12px; }
+    .toolbar { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #0b1220;
+      background: linear-gradient(135deg, var(--accent), #0ea5e9);
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    button:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(56,189,248,0.28); }
+    .ghost { background: transparent; color: var(--text); border: 1px solid var(--border); }
+    .status { margin-top: 8px; color: var(--muted); font-size: 13px; }
+    .counts { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 8px; }
+    .chip { padding: 8px 12px; border-radius: 10px; background: rgba(255,255,255,0.03); border: 1px solid var(--border); font-weight: 600; }
+    a { color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div>
+        <div class="pill">Admin</div>
+        <h1>Quản lý dữ liệu PSI</h1>
+        <div class="muted">Xem và thao tác dữ liệu (chỉ demo).</div>
+      </div>
+      <div class="toolbar">
+        <a href="/app" style="color:var(--accent)">← Trang người dùng</a>
+        <button class="ghost" id="logout">Đăng xuất</button>
+        <button id="refresh">Tải lại</button>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3 style="margin:6px 0 10px;">Thêm dữ liệu mới</h3>
+      <div class="form-grid">
+        <label>Ảnh X-ray
+          <input type="file" id="up-image" accept="image/*" />
+        </label>
+        <label>Tên bệnh
+          <input type="text" id="up-diagnosis" placeholder="vd: Pneumonia" />
+        </label>
+        <label>Tuổi
+          <input type="number" id="up-age" placeholder="vd: 42" />
+        </label>
+        <label>Tên bệnh nhân (tuỳ chọn)
+          <input type="text" id="up-name" placeholder="vd: Nguyen A" />
+        </label>
+      </div>
+      <div class="toolbar" style="margin-top:10px;">
+        <button id="btn-upload">Upload & index</button>
+      </div>
+      <div class="status" id="upload-status">Chưa có thao tác.</div>
+    </div>
+
+    <div class="card">
+      <div class="counts" id="counts"></div>
+      <div class="status" id="status">Đang tải...</div>
+      <table id="table">
+        <thead>
+          <tr>
+            <th>Record ID</th>
+            <th>Diagnosis</th>
+            <th>Age</th>
+            <th></th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const tbody = document.querySelector('#table tbody');
+    const countsEl = document.getElementById('counts');
+    const refreshBtn = document.getElementById('refresh');
+    const logoutBtn = document.getElementById('logout');
+    const uploadStatus = document.getElementById('upload-status');
+    const btnUpload = document.getElementById('btn-upload');
+    const upImage = document.getElementById('up-image');
+    const upDiagnosis = document.getElementById('up-diagnosis');
+    const upAge = document.getElementById('up-age');
+    const upName = document.getElementById('up-name');
+
+    async function loadData() {
+      statusEl.textContent = 'Đang tải...';
+      tbody.innerHTML = '';
+      countsEl.innerHTML = '';
+      try {
+        const res = await fetch('/admin/metadata');
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = data.error || 'Lỗi tải dữ liệu';
+          if (res.status === 401) window.location = '/admin/login';
+          return;
+        }
+        statusEl.textContent = `Tổng số metadata: ${data.count}`;
+        countsEl.innerHTML = `<div class="chip">Records: ${data.count}</div>`;
+        (data.records || []).forEach(r => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td>${r.record_id || ''}</td>
+            <td>${(r.diagnosis || r.meta?.diagnosis || 'N/A')}</td>
+            <td>${(r.age || r.meta?.age || '—')}</td>
+            <td><button class="ghost" data-id="${r.record_id}">Xoá</button></td>
+          `;
+          tbody.appendChild(tr);
+        });
+        tbody.querySelectorAll('button[data-id]').forEach(btn => {
+          btn.addEventListener('click', () => confirmDelete(btn.dataset.id));
+        });
+      } catch (e) {
+        statusEl.textContent = 'Lỗi kết nối: ' + e;
+      }
+    }
+
+    refreshBtn.addEventListener('click', loadData);
+    logoutBtn.addEventListener('click', async () => {
+      try { await fetch('/admin/logout', { method: 'POST' }); } finally { window.location = '/admin/login'; }
+    });
+
+    btnUpload.addEventListener('click', async () => {
+      if (!upImage.files.length) {
+        uploadStatus.textContent = 'Chọn file ảnh trước.';
+        return;
+      }
+      uploadStatus.textContent = 'Đang upload...';
+      const form = new FormData();
+      form.append('image', upImage.files[0]);
+      form.append('diagnosis', upDiagnosis.value || '');
+      form.append('age', upAge.value || '');
+      form.append('name', upName.value || '');
+      try {
+        const res = await fetch('/admin/upload', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) {
+          uploadStatus.textContent = data.error || 'Upload thất bại';
+          if (res.status === 401) window.location = '/admin/login';
+          return;
+        }
+        uploadStatus.textContent = 'Thành công: ' + data.record_id;
+        upImage.value = '';
+        upDiagnosis.value = '';
+        upAge.value = '';
+        upName.value = '';
+        loadData();
+      } catch (e) {
+        uploadStatus.textContent = 'Lỗi kết nối: ' + e;
+      }
+    });
+
+    async function confirmDelete(recordId) {
+      if (!confirm(`Xoá bản ghi ${recordId}?`)) return;
+      statusEl.textContent = 'Đang xoá...';
+      try {
+        const res = await fetch('/admin/delete', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ record_id: recordId })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          statusEl.textContent = data.error || 'Xoá thất bại';
+          if (res.status === 401) window.location = '/admin/login';
+          return;
+        }
+        statusEl.textContent = 'Đã xoá ' + recordId;
+        loadData();
+      } catch (e) {
+        statusEl.textContent = 'Lỗi kết nối: ' + e;
+      }
+    }
+    loadData();
+  </script>
+</body>
+</html>

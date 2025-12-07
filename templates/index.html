@@ -1,0 +1,364 @@
+<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Medical PSI Search</title>
+  <style>
+    :root {
+      --bg: #0f172a;
+      --card: #111827;
+      --accent: #22c55e;
+      --accent-2: #38bdf8;
+      --text: #e5e7eb;
+      --muted: #9ca3af;
+      --border: #1f2937;
+      --shadow: 0 15px 60px rgba(0,0,0,0.35);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: "Inter", "Segoe UI", system-ui, -apple-system, sans-serif;
+      background: radial-gradient(circle at 20% 20%, rgba(34,197,94,0.12), transparent 30%),
+                  radial-gradient(circle at 80% 0%, rgba(56,189,248,0.12), transparent 28%),
+                  var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 18px 48px;
+    }
+    .shell {
+      width: min(960px, 100%);
+      background: var(--card);
+      border: 1px solid var(--border);
+      border-radius: 18px;
+      padding: 26px 26px 18px;
+      box-shadow: var(--shadow);
+    }
+    .header {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      margin-bottom: 18px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border-radius: 999px;
+      background: rgba(34,197,94,0.12);
+      color: var(--accent);
+      font-weight: 600;
+      letter-spacing: 0.01em;
+      font-size: 13px;
+    }
+    h1 {
+      margin: 6px 0 4px;
+      font-size: 24px;
+      letter-spacing: -0.02em;
+    }
+    p { margin: 4px 0; color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 18px;
+    }
+    @media (max-width: 820px) {
+      .grid { grid-template-columns: 1fr; }
+    }
+    .card {
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 16px;
+      background: rgba(255,255,255,0.02);
+    }
+    .drop {
+      border: 1.5px dashed #2f3a4e;
+      border-radius: 14px;
+      padding: 20px;
+      text-align: center;
+      cursor: pointer;
+      transition: border-color .2s, background .2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      min-height: 140px;
+    }
+    .drop:hover { border-color: var(--accent); background: rgba(34,197,94,0.06); }
+    .drop input { display: none; }
+    .actions { display: flex; gap: 10px; margin-top: 14px; flex-wrap: wrap; }
+    button {
+      border: none;
+      border-radius: 10px;
+      padding: 12px 16px;
+      font-weight: 600;
+      cursor: pointer;
+      color: #0b1220;
+      background: linear-gradient(135deg, var(--accent), #16a34a);
+      transition: transform .12s ease, box-shadow .12s ease;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button:hover { transform: translateY(-1px); box-shadow: 0 8px 20px rgba(34,197,94,0.25); }
+    .ghost {
+      background: transparent;
+      color: var(--text);
+      border: 1px solid var(--border);
+    }
+    .status { font-size: 14px; margin-top: 10px; color: var(--muted); }
+    .list { display: flex; flex-direction: column; gap: 10px; margin-top: 10px; }
+    .item {
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 12px 14px;
+      background: #0b1220;
+    }
+    .item strong { color: var(--text); }
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      background: rgba(56,189,248,0.16);
+      color: var(--accent-2);
+      margin-left: 8px;
+    }
+    .meta { color: var(--muted); font-size: 14px; }
+    .small { font-size: 12px; color: var(--muted); }
+    footer { margin-top: 18px; font-size: 13px; color: var(--muted); text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="header">
+      <div class="pill">Private PSI Search</div>
+      <a href="/admin" style="margin-left:auto; color: var(--accent-2); font-weight:600; text-decoration:none;">Admin →</a>
+    </div>
+    <h1>Tìm kiếm hồ sơ bằng ảnh X-ray</h1>
+    <p>Chọn ảnh X-ray, hệ thống sẽ tokenize, thực hiện PSI nội bộ và trả về top kết quả phù hợp.</p>
+
+    <div class="grid">
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:6px;">1) Mã hóa offline</div>
+        <label class="drop" id="drop-encode">
+          <input type="file" id="file-encode" accept="image/*" />
+          <div>
+            <div style="font-weight:700; margin-bottom:6px;">Chọn ảnh để mã hóa thành .enc</div>
+            <div class="small">Không gửi ảnh ra ngoài; server chỉ trả tokens</div>
+          </div>
+          <div class="small" id="encode-info"></div>
+        </label>
+        <div class="actions">
+          <button id="btn-encode" disabled>Tạo file .enc</button>
+          <button class="ghost" id="btn-download" disabled>Tải .enc</button>
+          <button class="ghost" id="btn-forward" disabled>Chuyển sang tìm kiếm</button>
+        </div>
+        <div class="status" id="encode-status">Chưa có tác vụ.</div>
+      </div>
+
+      <div class="card">
+        <div style="font-weight:700; margin-bottom:6px;">2) Upload .enc & chạy PSI</div>
+        <label class="drop" id="drop-search">
+          <input type="file" id="file-enc" accept="application/json,.enc,.txt" />
+          <div>
+            <div style="font-weight:700; margin-bottom:6px;">Chọn file .enc</div>
+            <div class="small">Định dạng: { "tokens": ["..."] }</div>
+          </div>
+          <div class="small" id="search-info"></div>
+        </label>
+        <div class="actions">
+          <button id="btn-search" disabled>Chạy truy vấn</button>
+          <button class="ghost" id="btn-reset-search">Reset</button>
+        </div>
+        <div class="status" id="search-status">Chưa có tác vụ.</div>
+      </div>
+    </div>
+
+    <div class="card" style="margin-top:16px;">
+      <div style="font-weight:700; margin-bottom:6px;">Kết quả</div>
+      <div class="list" id="results"></div>
+    </div>
+
+    <footer>Server chỉ xử lý tokens và PSI; ảnh gốc không lưu lại.</footer>
+  </div>
+
+  <script>
+    // Encode elements
+    const fileEncode = document.getElementById('file-encode');
+    const dropEncode = document.getElementById('drop-encode');
+    const btnEncode = document.getElementById('btn-encode');
+    const btnDownload = document.getElementById('btn-download');
+    const btnForward = document.getElementById('btn-forward');
+    const encodeStatus = document.getElementById('encode-status');
+    const encodeInfo = document.getElementById('encode-info');
+
+    // Search elements (.enc upload)
+    const fileEnc = document.getElementById('file-enc');
+    const dropSearch = document.getElementById('drop-search');
+    const btnSearch = document.getElementById('btn-search');
+    const btnResetSearch = document.getElementById('btn-reset-search');
+    const searchStatus = document.getElementById('search-status');
+    const searchInfo = document.getElementById('search-info');
+
+    // Shared result
+    const resultsEl = document.getElementById('results');
+    let encodeFile = null;
+    let encData = null; // tokens JSON
+    let encBlob = null;
+    let encFilename = 'tokens.enc';
+
+    let searchFile = null;
+
+    function clearResults() { resultsEl.innerHTML = ''; }
+    function setEncodeStatus(msg) { encodeStatus.textContent = msg; }
+    function setSearchStatus(msg) { searchStatus.textContent = msg; }
+
+    // ---------- Encode handlers ----------
+    dropEncode.addEventListener('dragover', (e) => { e.preventDefault(); dropEncode.style.borderColor = 'var(--accent)'; });
+    dropEncode.addEventListener('dragleave', () => { dropEncode.style.borderColor = '#2f3a4e'; });
+    dropEncode.addEventListener('drop', (e) => {
+      e.preventDefault(); dropEncode.style.borderColor = '#2f3a4e';
+      if (e.dataTransfer.files.length) {
+        encodeFile = e.dataTransfer.files[0];
+        fileEncode.files = e.dataTransfer.files;
+        encodeInfo.textContent = `${encodeFile.name} (${Math.round(encodeFile.size/1024)} KB)`;
+        btnEncode.disabled = false;
+      }
+    });
+    fileEncode.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        encodeFile = e.target.files[0];
+        encodeInfo.textContent = `${encodeFile.name} (${Math.round(encodeFile.size/1024)} KB)`;
+        btnEncode.disabled = false;
+      }
+    });
+
+    btnEncode.addEventListener('click', async () => {
+      if (!encodeFile) return;
+      setEncodeStatus('Đang mã hóa...');
+      encData = null; encBlob = null;
+      btnDownload.disabled = true; btnForward.disabled = true;
+
+      const form = new FormData();
+      form.append('image', encodeFile);
+      try {
+        const res = await fetch('/api/encode', { method: 'POST', body: form });
+        const data = await res.json();
+        if (!res.ok) {
+          setEncodeStatus(data.error || 'Lỗi mã hóa');
+          return;
+        }
+        encData = data.enc;
+        encBlob = new Blob([JSON.stringify(encData)], { type: 'application/json' });
+        encFilename = (encodeFile.name || 'tokens') + '.enc';
+        setEncodeStatus(`Tạo tokens thành công (${data.count} tokens)`);
+        btnDownload.disabled = false;
+        btnForward.disabled = false;
+      } catch (e) {
+        setEncodeStatus('Lỗi kết nối: ' + e);
+      }
+    });
+
+    btnDownload.addEventListener('click', () => {
+      if (!encBlob) return;
+      const url = URL.createObjectURL(encBlob);
+      const a = document.createElement('a');
+      a.href = url; a.download = encFilename;
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 500);
+    });
+
+    btnForward.addEventListener('click', async () => {
+      if (!encData) return;
+      await runSearchWithTokens(encData.tokens);
+    });
+
+    // ---------- Search handlers (.enc) ----------
+    dropSearch.addEventListener('dragover', (e) => { e.preventDefault(); dropSearch.style.borderColor = 'var(--accent)'; });
+    dropSearch.addEventListener('dragleave', () => { dropSearch.style.borderColor = '#2f3a4e'; });
+    dropSearch.addEventListener('drop', (e) => {
+      e.preventDefault(); dropSearch.style.borderColor = '#2f3a4e';
+      if (e.dataTransfer.files.length) {
+        searchFile = e.dataTransfer.files[0];
+        fileEnc.files = e.dataTransfer.files;
+        searchInfo.textContent = `${searchFile.name} (${Math.round(searchFile.size/1024)} KB)`;
+        btnSearch.disabled = false;
+      }
+    });
+    fileEnc.addEventListener('change', (e) => {
+      if (e.target.files.length) {
+        searchFile = e.target.files[0];
+        searchInfo.textContent = `${searchFile.name} (${Math.round(searchFile.size/1024)} KB)`;
+        btnSearch.disabled = false;
+      }
+    });
+
+    btnResetSearch.addEventListener('click', () => {
+      searchFile = null;
+      fileEnc.value = '';
+      searchInfo.textContent = '';
+      btnSearch.disabled = true;
+      setSearchStatus('Chưa có tác vụ.');
+    });
+
+    btnSearch.addEventListener('click', async () => {
+      if (!searchFile) return;
+      setSearchStatus('Đang gửi truy vấn...');
+      clearResults();
+      btnSearch.disabled = true;
+      try {
+        const text = await searchFile.text();
+        const parsed = JSON.parse(text);
+        if (!parsed.tokens) throw new Error('File thiếu field tokens');
+        await runSearchWithTokens(parsed.tokens);
+        setSearchStatus('Hoàn tất.');
+      } catch (e) {
+        setSearchStatus('Lỗi đọc file: ' + e.message);
+      }
+      btnSearch.disabled = false;
+    });
+
+    // ---------- PSI search with tokens ----------
+    async function runSearchWithTokens(tokens) {
+      setSearchStatus('Đang chạy PSI...');
+      clearResults();
+      try {
+        const res = await fetch('/api/search_tokens', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ tokens })
+        });
+        const data = await res.json();
+        if (!res.ok) {
+          setSearchStatus(data.error || 'Lỗi PSI');
+          return;
+        }
+        const matches = data.matches || [];
+        if (!matches.length) {
+          setSearchStatus(data.message || 'Không tìm thấy kết quả');
+        } else {
+          setSearchStatus(`Tìm thấy ${matches.length} bản ghi phù hợp`);
+          matches.forEach((m) => {
+            const div = document.createElement('div');
+            div.className = 'item';
+            div.innerHTML = `
+              <div><strong>${m.record_id}</strong><span class="badge">score ${m.score}</span></div>
+              <div class="meta">${m.metadata && m.metadata.diagnosis ? m.metadata.diagnosis : 'N/A'}</div>
+              <div class="small">${m.metadata && m.metadata.age ? 'Tuổi: ' + m.metadata.age : ''}</div>
+            `;
+            resultsEl.appendChild(div);
+          });
+        }
+      } catch (err) {
+        setSearchStatus('Lỗi kết nối: ' + err);
+      }
+    }
+  </script>
+</body>
+</html>
