@@ -1,0 +1,33 @@
+{
+  "PATIENT_78A0D6FC": {
+    "record_id": "PATIENT_78A0D6FC",
+    "age": 31,
+    "diagnosis": "Cardiomegaly"
+  },
+  "PATIENT_6F827870": {
+    "record_id": "PATIENT_6F827870",
+    "age": 53,
+    "diagnosis": "Normal"
+  },
+  "PATIENT_A66A4701": {
+    "record_id": "PATIENT_A66A4701",
+    "age": 25,
+    "diagnosis": "Normal"
+  },
+  "PATIENT_376FB937": {
+    "record_id": "PATIENT_376FB937",
+    "age": 77,
+    "diagnosis": "Pneumonia"
+  },
+  "PATIENT_D991C61C": {
+    "record_id": "PATIENT_D991C61C",
+    "age": 24,
+    "diagnosis": "Cardiomegaly"
+  },
+  "PATIENT_D7619012": {
+    "record_id": "PATIENT_D7619012",
+    "diagnosis": "Vi\u00eam ph\u1ed5i",
+    "age": 12,
+    "name": ""
+  }
+}

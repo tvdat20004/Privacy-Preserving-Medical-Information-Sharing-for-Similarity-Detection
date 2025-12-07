@@ -1,0 +1,27 @@
+{
+  "PATIENT_72F2D486": {
+    "record_id": "PATIENT_72F2D486",
+    "age": 18,
+    "diagnosis": "Normal"
+  },
+  "PATIENT_19DD8BB7": {
+    "record_id": "PATIENT_19DD8BB7",
+    "age": 20,
+    "diagnosis": "Pneumonia"
+  },
+  "PATIENT_8AE52342": {
+    "record_id": "PATIENT_8AE52342",
+    "age": 30,
+    "diagnosis": "Effusion"
+  },
+  "PATIENT_1DA39BE7": {
+    "record_id": "PATIENT_1DA39BE7",
+    "age": 57,
+    "diagnosis": "Pneumonia"
+  },
+  "PATIENT_7EC1CC5E": {
+    "record_id": "PATIENT_7EC1CC5E",
+    "age": 82,
+    "diagnosis": "Atelectasis"
+  }
+}
