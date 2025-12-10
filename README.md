@@ -9,30 +9,19 @@ A Private Set Intersection (PSI) protocol for medical image retrieval built on M
 - Server: Flask (REST API)
 - Protocol: OPRF-based sender-augmented PSI
 
-## Setup
+## Features
 
-### 1. Docker (Recommended)
+- Private Set Intersection (PSI) for medical X-ray queries using Microsoft APSI (PyAPSI bindings)
+- Client flow: offline encode image → download `.enc` tokens or forward to search; upload `.enc`/tokens to run PSI and view top matches with metadata
+- Admin flow: login (demo `admin/12345`), view metadata, upload new record (image + diagnosis/age/name) to tokenize and index, delete records with confirmation (rebuilds DB from stored tokens)
+- Data handling: server keeps DB/tokens private; client image is tokenized locally/server-side without exposing raw data externally
 
-```bash
-docker build -t psi-medical Code/psi-medical-project
-# Run server
-cd Code/psi-medical-project
-docker run -p 5000:5000 -v $(pwd)/server/data:/app/server/data psi-medical
-# Run client
-docker run -it --network="host" psi-medical python -m client.client_app
-```
+## How it works (summary)
 
-### 2. Local Development
-
-1. Clone `LGro/PyAPSI` and install dependencies (`cmake`, `g++`).
-2. Run `pip install .` inside the PyAPSI repo.
-3. Install project requirements with `pip install -r requirements.txt`.
-
-## Usage
-
-1. Server indexes dummy patient data on startup.
-2. Client points to an image path and runs the PSI protocol.
-3. Matches trigger metadata fetches from `/metadata/<record_id>`.
+- Tokenization: MedicalImageTokenizer (torch + torchvision) produces fixed-length tokens from an X-ray
+- PSI protocol: LabeledClient/LabeledServer (PyAPSI) run OPRF + query/extract locally; matches are counts per record ID
+- Metadata join: top matches are enriched with metadata from `server/data/metadata.json`
+- Persistence: tokens/metadata/DB stored under `server/data/` (`medical.db`, `metadata.json`, `tokens.json`)
 
 ## Directory Overview
 
