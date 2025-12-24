@@ -7,7 +7,7 @@ APSI_PARAMS = """
 {
     "table_params": {
         "hash_func_count": 3,
-        "table_size": 2048,         
+        "table_size": 131072,         
         "max_items_per_bin": 92
     },
     "item_params": {"felts_per_item": 8},

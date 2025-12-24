@@ -184,8 +184,6 @@
       <div style="font-weight:700; margin-bottom:6px;">Kết quả</div>
       <div class="list" id="results"></div>
     </div>
-
-    <footer>Server chỉ xử lý tokens và PSI; ảnh gốc không lưu lại.</footer>
   </div>
 
   <script>
@@ -275,8 +273,11 @@
     });
 
     btnForward.addEventListener('click', async () => {
-      if (!encData) return;
-      await runSearchWithTokens(encData.tokens);
+      if (!encData || !encData.tokens) return;
+      // Ensure tokens are a clean array of strings, matching the upload flow
+      // Also deduplicate on client side to be safe
+      const tokens = [...new Set(encData.tokens)];
+      await runSearchWithTokens(tokens);
     });
 
     // ---------- Search handlers (.enc) ----------
@@ -316,8 +317,10 @@
         const text = await searchFile.text();
         const parsed = JSON.parse(text);
         if (!parsed.tokens) throw new Error('File thiếu field tokens');
-        await runSearchWithTokens(parsed.tokens);
-        setSearchStatus('Hoàn tất.');
+        
+        // Deduplicate on client side
+        const tokens = [...new Set(parsed.tokens)];
+        await runSearchWithTokens(tokens);
       } catch (e) {
         setSearchStatus('Lỗi đọc file: ' + e.message);
       }
@@ -347,9 +350,11 @@
           matches.forEach((m) => {
             const div = document.createElement('div');
             div.className = 'item';
+            const diag = m.metadata && m.metadata.diagnosis;
+            const diagStr = Array.isArray(diag) ? diag.join(', ') : (diag || 'N/A');
             div.innerHTML = `
               <div><strong>${m.record_id}</strong><span class="badge">score ${m.score}</span></div>
-              <div class="meta">${m.metadata && m.metadata.diagnosis ? m.metadata.diagnosis : 'N/A'}</div>
+              <div class="meta">${diagStr}</div>
               <div class="small">${m.metadata && m.metadata.age ? 'Tuổi: ' + m.metadata.age : ''}</div>
             `;
             resultsEl.appendChild(div);

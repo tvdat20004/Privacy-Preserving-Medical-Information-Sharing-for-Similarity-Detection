@@ -4,9 +4,14 @@ from common.config import APSI_PARAMS, MAX_LABEL_LENGTH
 import os
 
 class APSIDatabase:
-    def __init__(self, db_path="server/data/medical.db"):
+    def __init__(self, db_path=None):
         self.server = LabeledServer()
-        self.db_path = db_path
+        if db_path is None:
+            # Default to absolute path relative to this file
+            base_dir = os.path.dirname(os.path.abspath(__file__))
+            self.db_path = os.path.join(base_dir, "data", "medical.db")
+        else:
+            self.db_path = db_path
         
         # Ensure directory exists
         os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
@@ -26,6 +31,8 @@ class APSIDatabase:
         self.server.init_db(APSI_PARAMS, max_label_length=MAX_LABEL_LENGTH)
 
     def add_record(self, record_id: str, tokens: list[str]):
+        # Deduplicate tokens to prevent duplicate (token, label) pairs
+        tokens = list(set(tokens))
         items_with_labels = []
         for t in tokens:
             items_with_labels.append((t, record_id))
@@ -34,6 +41,22 @@ class APSIDatabase:
             self.server.add_items(items_with_labels)
         except ValueError as e:
             print(f"[DB] Error adding items: {e}")
+
+    def add_batch(self, records_tokens: list[tuple]):
+        """
+        Efficiently add a batch of records.
+        records_tokens: List of (record_id, tokens_list) tuples.
+        """
+        items_with_labels = []
+        for rid, tokens in records_tokens:
+            for t in tokens:
+                items_with_labels.append((t, rid))
+        
+        if items_with_labels:
+            try:
+                self.server.add_items(items_with_labels)
+            except ValueError as e:
+                print(f"[DB] Error adding batch: {e}")
 
     def save(self):
         """Persist the database to disk."""

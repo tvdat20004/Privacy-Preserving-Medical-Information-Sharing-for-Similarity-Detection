@@ -1,124 +1,40 @@
 # server/server_app.py
 import os
 import sys
-import uuid
-import random
 import json
+import hashlib
 from pathlib import Path
+from flask import Flask, request, jsonify, Response, render_template, redirect, session, url_for
 
 # Add project root to Python path for imports
 _project_root = Path(__file__).resolve().parent.parent
 if str(_project_root) not in sys.path:
     sys.path.insert(0, str(_project_root))
 
-import tempfile
+# Import Services
 from common.config import APSI_PARAMS, MAX_LABEL_LENGTH
-from flask import Flask, request, jsonify, Response, render_template, redirect, session, url_for
-from server.db_manager import APSIDatabase
-from client.image.tokenizer import MedicalImageTokenizer
-from apsi import LabeledClient
+from server.services.record_manager import MedicalRecordManager
+from server.services.search_service import SearchService
+import multiprocessing
+from apsi.utils import set_thread_count
 
 TEMPLATE_ROOT = _project_root / "templates"
 app = Flask(__name__, template_folder=str(TEMPLATE_ROOT))
 app.secret_key = os.environ.get("APP_SECRET_KEY", "dev-secret")
 
-print("--- Initializing Server and Database ---")
-db = APSIDatabase(db_path="server/data/medical.db")
-app.db = db
+# --- OPTIMIZATION ---
+# try:
+#     cpu_count = multiprocessing.cpu_count()
+#     set_thread_count(cpu_count)
+#     print(f"--- APSI Thread Count set to {cpu_count} ---")
+# except Exception as e:
+#     print(f"Warning: Could not set APSI thread count: {e}")
 
-# --- METADATA PERSISTENCE SETUP ---
-METADATA_PATH = Path("server/data/metadata.json")
-TOKENS_PATH = Path("server/data/tokens.json")
+# --- INITIALIZATION ---
 
-def load_metadata():
-    if METADATA_PATH.exists():
-        try:
-            with open(METADATA_PATH, "r") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"[Server] Error loading metadata: {e}")
-    return {}
-
-
-def load_tokens_store():
-    if TOKENS_PATH.exists():
-        try:
-            with open(TOKENS_PATH, "r") as f:
-                return json.load(f)
-        except Exception as e:
-            print(f"[Server] Error loading tokens store: {e}")
-    return {}
-
-def save_metadata(store):
-    try:
-        with open(METADATA_PATH, "w") as f:
-            json.dump(store, f, indent=2)
-        print(f"[Server] Metadata saved to {METADATA_PATH}")
-    except Exception as e:
-        print(f"[Server] Error saving metadata: {e}")
-
-
-def save_tokens_store(store):
-    try:
-        with open(TOKENS_PATH, "w") as f:
-            json.dump(store, f)
-        print(f"[Server] Tokens saved to {TOKENS_PATH}")
-    except Exception as e:
-        print(f"[Server] Error saving tokens: {e}")
-
-# Load metadata into memory on startup
-app.metadata_store = load_metadata()
-app.tokens_store = load_tokens_store()
-print(f"[Server] Loaded {len(app.metadata_store)} metadata records.")
-
-# --- OFFLINE PHASE: INDEXING ---
-if not os.path.exists(db.db_path) or os.path.getsize(db.db_path) == 0:
-    print("Performing Offline Indexing...")
-    tok = MedicalImageTokenizer()
-    
-    # Scan test_data directory
-    test_data_dir = Path(_project_root) / "tests" / "test_data"
-    test_data_dir.mkdir(parents=True, exist_ok=True)
-    
-    image_extensions = {'.jpg', '.jpeg', '.png', '.bmp', '.tiff', '.tif'}
-    image_files = [
-        f for f in test_data_dir.iterdir()
-        if f.is_file() and f.suffix.lower() in image_extensions
-    ]
-    
-    # Indexing Logic
-    diagnoses = ["Pneumonia", "Normal", "Atelectasis", "Cardiomegaly", "Effusion"]
-    
-    count = 0
-    for img_path in sorted(image_files):
-        # Create a deterministic ID for testing (or random)
-        # Using filename hash or just filename helps debugging
-        record_id = f"PATIENT_{uuid.uuid4().hex[:8].upper()}"
-        
-        try:
-            tokens = tok.process(str(img_path))
-            if tokens:
-                db.add_record(record_id, tokens)
-                
-                # Populate metadata
-                app.metadata_store[record_id] = {
-                    "record_id": record_id,
-                    "age": random.randint(18, 85),
-                    "diagnosis": random.choice(diagnoses)
-                }
-                app.tokens_store[record_id] = tokens
-                count += 1
-                print(f"  ✓ Indexed {record_id} ({img_path.name})")
-        except Exception as e:
-            print(f"  ✗ Error {img_path.name}: {e}")
-            
-    # Save BOTH the DB and the Metadata
-    db.save()
-    save_metadata(app.metadata_store)
-    save_tokens_store(app.tokens_store)
-    print(f"--- Indexing Complete: {count} records ---")
-else:
-    print("Database already exists. Skipping indexing.")
+print("--- Initializing Server Services ---")
+record_manager = MedicalRecordManager(_project_root)
+search_service = SearchService(record_manager)
 
 @app.route('/')
 def root_redirect():
@@ -137,7 +53,7 @@ def admin_login():
     data = request.form or request.get_json(silent=True) or {}
     username = data.get('username')
     password = data.get('password')
-    if username == 'admin' and password == '12345':
+    if username == 'admin' and hashlib.md5(password.encode()).hexdigest() == '827ccb0eea8a706c4c34a16891f84e7b': # 12345
         session['is_admin'] = True
         return jsonify({"ok": True, "redirect": url_for('admin_home')})
     return jsonify({"error": "Sai tài khoản hoặc mật khẩu"}), 401
@@ -152,17 +68,23 @@ def admin_logout():
 # ---------------- PSI API (shared) -----------------
 @app.route('/oprf', methods=['POST'])
 def oprf():
-    return Response(app.db.handle_oprf(request.get_data()), mimetype='application/octet-stream')
+    return Response(record_manager.handle_oprf(request.get_data()), mimetype='application/octet-stream')
 
+
+import time
 
 @app.route('/query', methods=['POST'])
 def query():
-    return Response(app.db.handle_query(request.get_data()), mimetype='application/octet-stream')
+    start_time = time.time()
+    response = record_manager.handle_query(request.get_data())
+    elapsed_time = time.time() - start_time
+    print(f"[Query] Processed in {elapsed_time:.4f} seconds")
+    return Response(response, mimetype='application/octet-stream')
 
 
 @app.route('/metadata/<record_id>', methods=['GET'])
 def get_metadata(record_id):
-    meta = app.metadata_store.get(record_id)
+    meta = record_manager.get_metadata(record_id)
     if meta:
         return jsonify(meta)
     else:
@@ -185,76 +107,13 @@ def ui_search():
     if file.filename == '':
         return jsonify({"error": "File ảnh không hợp lệ"}), 400
 
-    # Save to a temp file so the tokenizer can read by path
-    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1] or '.jpg') as tmp:
-        file.save(tmp.name)
-        temp_path = tmp.name
-
     try:
-        tokenizer = MedicalImageTokenizer()
-        tokens = tokenizer.process(temp_path)
+        matches = search_service.process_image_search(file)
+        if not matches:
+            return jsonify({"matches": [], "message": "Không tìm thấy bản ghi phù hợp"})
+        return jsonify({"matches": matches})
     except Exception as e:
-        os.unlink(temp_path)
-        return jsonify({"error": f"Lỗi tokenize ảnh: {e}"}), 500
-
-    os.unlink(temp_path)
-
-    if not tokens:
-        return jsonify({"error": "Không tạo được token từ ảnh"}), 400
-
-    # Run PSI locally via in-process server/db
-    try:
-        client = LabeledClient(APSI_PARAMS)
-        oprf_req = client.oprf_request(tokens)
-        oprf_resp = app.db.handle_oprf(oprf_req)
-        query = client.build_query(oprf_resp)
-        query_resp = app.db.handle_query(query)
-        result = client.extract_result(query_resp)
-    except Exception as e:
-        return jsonify({"error": f"Lỗi khi chạy PSI: {e}"}), 500
-
-    if not result:
-        return jsonify({"matches": [], "message": "Không tìm thấy bản ghi phù hợp"})
-
-    # Count matches per record
-    from collections import Counter
-    counts = Counter(result.values())
-    top_matches = counts.most_common(5)
-
-    payload = []
-    for record_id, score in top_matches:
-        metadata = app.metadata_store.get(record_id, {"note": "Chưa có metadata"})
-        payload.append({
-            "record_id": record_id,
-            "score": score,
-            "metadata": metadata
-        })
-
-    return jsonify({"matches": payload})
-
-
-def _run_psi_with_tokens(tokens, top_k=5):
-    """Shared PSI execution given precomputed tokens."""
-    client = LabeledClient(APSI_PARAMS)
-    oprf_req = client.oprf_request(tokens)
-    oprf_resp = app.db.handle_oprf(oprf_req)
-    query = client.build_query(oprf_resp)
-    query_resp = app.db.handle_query(query)
-    result = client.extract_result(query_resp)
-    if not result:
-        return []
-    from collections import Counter
-    counts = Counter(result.values())
-    top_matches = counts.most_common(top_k)
-    payload = []
-    for record_id, score in top_matches:
-        metadata = app.metadata_store.get(record_id, {"note": "Chưa có metadata"})
-        payload.append({
-            "record_id": record_id,
-            "score": score,
-            "metadata": metadata
-        })
-    return payload
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/encode', methods=['POST'])
@@ -266,24 +125,12 @@ def api_encode():
     if file.filename == '':
         return jsonify({"error": "File ảnh không hợp lệ"}), 400
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1] or '.jpg') as tmp:
-        file.save(tmp.name)
-        temp_path = tmp.name
-
     try:
-        tokenizer = MedicalImageTokenizer()
-        tokens = tokenizer.process(temp_path)
+        tokens = search_service.encode_image(file)
+        payload = {"tokens": tokens}
+        return jsonify({"count": len(tokens), "enc": payload})
     except Exception as e:
-        os.unlink(temp_path)
-        return jsonify({"error": f"Lỗi tokenize ảnh: {e}"}), 500
-
-    os.unlink(temp_path)
-
-    if not tokens:
-        return jsonify({"error": "Không tạo được token từ ảnh"}), 400
-
-    payload = {"tokens": tokens}
-    return jsonify({"count": len(tokens), "enc": payload})
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/api/search_tokens', methods=['POST'])
@@ -299,23 +146,28 @@ def api_search_tokens():
             return jsonify({"error": f"Không đọc được file enc: {e}"}), 400
     else:
         try:
-            data = request.get_json(force=True)
+            data = request.get_json(force=True, silent=True)
             tokens = data.get('tokens') if data else None
         except Exception:
             tokens = None
 
-    if not tokens or not isinstance(tokens, list):
-        return jsonify({"error": "Thiếu tokens"}), 400
+    if not tokens:
+        return jsonify({"error": "Không tìm thấy tokens hợp lệ"}), 400
+
+    print(f"[API] Search tokens request: {len(tokens)} tokens")
+    if len(tokens) > 0:
+        print(f"[API] First token type: {type(tokens[0])}")
+        print(f"[API] First token value: {tokens[0]}")
 
     try:
-        payload = _run_psi_with_tokens(tokens)
+        matches = search_service.process_token_search(tokens)
+        if not matches:
+            return jsonify({"matches": [], "message": "Không tìm thấy bản ghi phù hợp"})
+        return jsonify({"matches": matches})
     except Exception as e:
-        return jsonify({"error": f"Lỗi khi chạy PSI: {e}"}), 500
-
-    if not payload:
-        return jsonify({"matches": [], "message": "Không tìm thấy bản ghi phù hợp"})
-
-    return jsonify({"matches": payload})
+        import traceback
+        traceback.print_exc()
+        return jsonify({"error": str(e)}), 500
 
 
 # ---------------- Admin UI -----------------
@@ -330,11 +182,30 @@ def admin_home():
 def admin_metadata():
     if not require_admin():
         return jsonify({"error": "Unauthorized"}), 401
-    records = [
-        {"record_id": rid, **meta} if isinstance(meta, dict) else {"record_id": rid, "meta": meta}
-        for rid, meta in app.metadata_store.items()
-    ]
-    return jsonify({"count": len(records), "records": records})
+    
+    try:
+        page = int(request.args.get('page', 1))
+        limit = int(request.args.get('limit', 20))
+    except ValueError:
+        page = 1
+        limit = 20
+
+    all_records = record_manager.get_all_metadata()
+    # Sort for consistent pagination
+    all_records.sort(key=lambda x: x.get('record_id', ''))
+    
+    total_count = len(all_records)
+    start = (page - 1) * limit
+    end = start + limit
+    
+    records = all_records[start:end]
+    
+    return jsonify({
+        "count": total_count,
+        "records": records,
+        "page": page,
+        "limit": limit
+    })
 
 
 @app.route('/admin/upload', methods=['POST'])
@@ -349,7 +220,11 @@ def admin_upload():
     if file.filename == '':
         return jsonify({"error": "File ảnh không hợp lệ"}), 400
 
-    diagnosis = request.form.get('diagnosis') or ''
+    diagnosis_str = request.form.get('diagnosis') or ''
+    diagnosis_list = [d.strip() for d in diagnosis_str.split(',') if d.strip()]
+    if not diagnosis_list:
+        diagnosis_list = ["N/A"]
+
     age_raw = request.form.get('age') or ''
     name = request.form.get('name') or ''
     try:
@@ -357,39 +232,19 @@ def admin_upload():
     except Exception:
         age = None
 
+    # Save to temp file for processing
     with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(file.filename)[1] or '.jpg') as tmp:
         file.save(tmp.name)
         temp_path = tmp.name
 
     try:
-        tokenizer = MedicalImageTokenizer()
-        tokens = tokenizer.process(temp_path)
-    except Exception as e:
+        record_id = record_manager.add_patient_record(temp_path, diagnosis_list, age, name)
         os.unlink(temp_path)
-        return jsonify({"error": f"Lỗi tokenize ảnh: {e}"}), 500
-
-    os.unlink(temp_path)
-
-    if not tokens:
-        return jsonify({"error": "Không tạo được token từ ảnh"}), 400
-
-    record_id = f"PATIENT_{uuid.uuid4().hex[:8].upper()}"
-    try:
-        app.db.add_record(record_id, tokens)
-        app.db.save()
-        app.metadata_store[record_id] = {
-            "record_id": record_id,
-            "diagnosis": diagnosis or "N/A",
-            "age": age,
-            "name": name
-        }
-        app.tokens_store[record_id] = tokens
-        save_metadata(app.metadata_store)
-        save_tokens_store(app.tokens_store)
+        return jsonify({"ok": True, "record_id": record_id})
     except Exception as e:
-        return jsonify({"error": f"Lỗi lưu DB: {e}"}), 500
-
-    return jsonify({"ok": True, "record_id": record_id})
+        if os.path.exists(temp_path):
+            os.unlink(temp_path)
+        return jsonify({"error": str(e)}), 500
 
 
 @app.route('/admin/delete', methods=['POST'])
@@ -402,25 +257,14 @@ def admin_delete():
     if not record_id:
         return jsonify({"error": "Thiếu record_id"}), 400
 
-    if record_id not in app.tokens_store:
-        return jsonify({"error": "Thiếu tokens để xoá. Bản ghi có thể được tạo trước khi lưu tokens."}), 400
-
-    # Remove from stores
-    app.tokens_store.pop(record_id, None)
-    app.metadata_store.pop(record_id, None)
-    save_metadata(app.metadata_store)
-    save_tokens_store(app.tokens_store)
-
-    # Rebuild DB from tokens
     try:
-        app.db.server.init_db(APSI_PARAMS, max_label_length=MAX_LABEL_LENGTH)
-        for rid, toks in app.tokens_store.items():
-            app.db.add_record(rid, toks)
-        app.db.save()
+        success = record_manager.delete_patient_record(record_id)
+        if success:
+            return jsonify({"ok": True, "deleted": record_id})
+        else:
+            return jsonify({"error": "Record not found"}), 404
     except Exception as e:
-        return jsonify({"error": f"Lỗi khi rebuild DB: {e}"}), 500
-
-    return jsonify({"ok": True, "deleted": record_id})
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=5000, debug=True)

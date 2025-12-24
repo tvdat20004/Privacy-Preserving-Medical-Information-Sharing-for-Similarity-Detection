@@ -112,7 +112,7 @@
           <input type="file" id="up-image" accept="image/*" />
         </label>
         <label>Tên bệnh
-          <input type="text" id="up-diagnosis" placeholder="vd: Pneumonia" />
+          <input type="text" id="up-diagnosis" placeholder="vd: Pneumonia, Edema" />
         </label>
         <label>Tuổi
           <input type="number" id="up-age" placeholder="vd: 42" />
@@ -129,6 +129,25 @@
 
     <div class="card">
       <div class="counts" id="counts"></div>
+      
+      <div class="toolbar" style="margin: 10px 0; justify-content: space-between;">
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <label for="limit-select" style="font-size: 13px; color: var(--muted);">Hiển thị:</label>
+          <select id="limit-select" style="padding: 6px 10px;">
+            <option value="10">10</option>
+            <option value="20" selected>20</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+            <option value="500">500</option>
+          </select>
+        </div>
+        <div style="display: flex; align-items: center; gap: 10px;">
+          <button id="prev-page" class="ghost" style="padding: 6px 12px;" disabled>&lt;</button>
+          <span id="page-info" style="font-size: 13px; color: var(--muted);">Trang 1</span>
+          <button id="next-page" class="ghost" style="padding: 6px 12px;" disabled>&gt;</button>
+        </div>
+      </div>
+
       <div class="status" id="status">Đang tải...</div>
       <table id="table">
         <thead>
@@ -157,12 +176,21 @@
     const upAge = document.getElementById('up-age');
     const upName = document.getElementById('up-name');
 
+    // Pagination elements
+    const limitSelect = document.getElementById('limit-select');
+    const prevPageBtn = document.getElementById('prev-page');
+    const nextPageBtn = document.getElementById('next-page');
+    const pageInfo = document.getElementById('page-info');
+
+    let currentPage = 1;
+    let currentLimit = 20;
+
     async function loadData() {
       statusEl.textContent = 'Đang tải...';
       tbody.innerHTML = '';
       countsEl.innerHTML = '';
       try {
-        const res = await fetch('/admin/metadata');
+        const res = await fetch(`/admin/metadata?page=${currentPage}&limit=${currentLimit}`);
         const data = await res.json();
         if (!res.ok) {
           statusEl.textContent = data.error || 'Lỗi tải dữ liệu';
@@ -171,11 +199,20 @@
         }
         statusEl.textContent = `Tổng số metadata: ${data.count}`;
         countsEl.innerHTML = `<div class="chip">Records: ${data.count}</div>`;
+        
+        // Update pagination UI
+        const totalPages = Math.ceil(data.count / currentLimit);
+        pageInfo.textContent = `Trang ${currentPage} / ${totalPages || 1}`;
+        prevPageBtn.disabled = currentPage <= 1;
+        nextPageBtn.disabled = currentPage >= totalPages;
+
         (data.records || []).forEach(r => {
           const tr = document.createElement('tr');
+          const diag = r.diagnosis || r.meta?.diagnosis;
+          const diagStr = Array.isArray(diag) ? diag.join(', ') : (diag || 'N/A');
           tr.innerHTML = `
             <td>${r.record_id || ''}</td>
-            <td>${(r.diagnosis || r.meta?.diagnosis || 'N/A')}</td>
+            <td>${diagStr}</td>
             <td>${(r.age || r.meta?.age || '—')}</td>
             <td><button class="ghost" data-id="${r.record_id}">Xoá</button></td>
           `;
@@ -188,6 +225,24 @@
         statusEl.textContent = 'Lỗi kết nối: ' + e;
       }
     }
+
+    limitSelect.addEventListener('change', () => {
+      currentLimit = parseInt(limitSelect.value);
+      currentPage = 1;
+      loadData();
+    });
+
+    prevPageBtn.addEventListener('click', () => {
+      if (currentPage > 1) {
+        currentPage--;
+        loadData();
+      }
+    });
+
+    nextPageBtn.addEventListener('click', () => {
+      currentPage++;
+      loadData();
+    });
 
     refreshBtn.addEventListener('click', loadData);
     logoutBtn.addEventListener('click', async () => {
