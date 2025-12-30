@@ -9,3 +9,4 @@ torchvision>=0.15.0
 scikit-learn>=1.1.0
 torch
 pandas
+matplotlib

@@ -5,12 +5,16 @@ import random
 from pathlib import Path
 from common.config import APSI_PARAMS, MAX_LABEL_LENGTH
 from server.db_manager import APSIDatabase
-from client.image.tokenizer import MedicalImageTokenizer
+# from client.image.tokenizer import MedicalImageTokenizer
 
 class MedicalRecordManager:
-    def __init__(self, project_root: Path):
+    def __init__(self, project_root: Path, data_dir: Path = None):
         self.project_root = project_root
-        self.data_dir = self.project_root / "server" / "data"
+        if data_dir:
+            self.data_dir = data_dir
+        else:
+            self.data_dir = self.project_root / "server" / "data"
+            
         self.metadata_path = self.data_dir / "metadata.json"
         self.tokens_path = self.data_dir / "tokens.json"
         self.db_path = self.data_dir / "medical.db"
@@ -78,6 +82,7 @@ class MedicalRecordManager:
 
     def add_patient_record(self, image_path, diagnosis_list, age, name):
         try:
+            from client.image.tokenizer import MedicalImageTokenizer
             tokenizer = MedicalImageTokenizer()
             tokens = tokenizer.process(image_path)
         except Exception as e:
@@ -133,3 +138,12 @@ class MedicalRecordManager:
 
     def handle_query(self, query_data):
         return self.db.handle_query(query_data)
+
+    def reload_database(self):
+        """Reloads the database and metadata from disk."""
+        print("[Manager] Reloading DB from disk...")
+        # Re-init APSIDatabase (it loads from disk on init)
+        self.db = APSIDatabase(db_path=str(self.db_path))
+        self.metadata_store = self._load_metadata()
+        self.tokens_store = self._load_tokens_store()
+        print(f"[Manager] Reload complete. Loaded {len(self.metadata_store)} records.")

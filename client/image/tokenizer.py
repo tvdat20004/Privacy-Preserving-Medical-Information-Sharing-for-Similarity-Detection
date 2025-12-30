@@ -27,8 +27,8 @@ def get_model():
     return MODEL
 
 class MedicalImageTokenizer:
-    # def __init__(self, n_bits=256, band_size=16):
-    def __init__(self, n_bits=256, band_size=32):
+    def __init__(self, n_bits=256, band_size=16):
+    # def __init__(self, n_bits=256, band_size=32):
     
         self.n_bits = n_bits
         self.band_size = band_size

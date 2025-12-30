@@ -5,7 +5,7 @@ import time
 from collections import Counter
 from apsi import LabeledClient
 from common.config import APSI_PARAMS
-from client.image.tokenizer import MedicalImageTokenizer
+# from client.image.tokenizer import MedicalImageTokenizer
 
 class SearchService:
     def __init__(self, record_manager):
@@ -18,6 +18,7 @@ class SearchService:
             temp_path = tmp.name
 
         try:
+            from client.image.tokenizer import MedicalImageTokenizer
             tokenizer = MedicalImageTokenizer()
             tokens = tokenizer.process(temp_path)
         except Exception as e:
@@ -46,6 +47,7 @@ class SearchService:
             temp_path = tmp.name
 
         try:
+            from client.image.tokenizer import MedicalImageTokenizer
             tokenizer = MedicalImageTokenizer()
             tokens = tokenizer.process(temp_path)
         except Exception as e:

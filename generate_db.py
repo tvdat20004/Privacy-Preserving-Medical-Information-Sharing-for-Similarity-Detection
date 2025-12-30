@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 import csv
 import uuid
 import random
@@ -10,6 +11,8 @@ from tqdm import tqdm
 import torch
 from torch.utils.data import Dataset, DataLoader
 from PIL import Image
+import pandas as pd
+import matplotlib.pyplot as plt
 
 # Add project root to Python path
 _project_root = Path(__file__).resolve().parent
@@ -169,8 +172,20 @@ def generate_database(start_index, end_index, append=False, checkpoint_interval=
     
     print("Tokenizing and Indexing (DataLoader + GPU)...")
     
+    # Setup logging
+    log_file = _project_root / "db_generation_log.csv"
+    if not append and log_file.exists():
+        log_file.unlink() # Remove old log if starting fresh
+        
+    if not log_file.exists():
+        with open(log_file, 'w', newline='') as f:
+            writer = csv.writer(f)
+            writer.writerow(["DB_Size", "Time_Seconds"])
+
     processed_count = 0
     next_checkpoint = checkpoint_interval if checkpoint_interval else float('inf')
+    
+    start_time = time.time()
 
     for batch_tensors, batch_idxs in tqdm(dataloader, desc="Processing Batches"):
         if batch_tensors is None:
@@ -223,7 +238,14 @@ def generate_database(start_index, end_index, append=False, checkpoint_interval=
         # Checkpoint Logic
         if checkpoint_interval and processed_count >= next_checkpoint:
             total_records = len(metadata_store)
-            print(f"\n[Checkpoint] Reached {processed_count} processed items. Saving snapshot to data_{total_records}...")
+            elapsed_time = time.time() - start_time
+            
+            # Log time
+            with open(log_file, 'a', newline='') as f:
+                writer = csv.writer(f)
+                writer.writerow([total_records, f"{elapsed_time:.4f}"])
+
+            print(f"\n[Checkpoint] Reached {processed_count} processed items. Time: {elapsed_time:.2f}s. Saving snapshot to data_{total_records}...")
             
             # Save main DB first
             db.save()
@@ -256,6 +278,42 @@ def generate_database(start_index, end_index, append=False, checkpoint_interval=
         json.dump(tokens_store, f)
         
     print(f"--- Done! Database now has {len(metadata_store)} records. ---")
+    
+    # Plot generation time
+    plot_db_generation_time()
+
+def plot_db_generation_time():
+    csv_path = _project_root / "db_generation_log.csv"
+    output_image = _project_root / "experiment/result/figure_db_generation_time.png"
+    
+    if not csv_path.exists():
+        # print(f"Log file {csv_path} not found, skipping plot.")
+        return
+
+    try:
+        df = pd.read_csv(csv_path)
+        
+        # Convert seconds to hours for better readability
+        df['Time_Hours'] = df['Time_Seconds'] / 3600
+
+        plt.figure(figsize=(10, 6))
+        plt.plot(df['DB_Size'], df['Time_Hours'], marker='o', linestyle='-', color='purple', linewidth=2, label='Generation Time')
+        
+        plt.xlabel('Database Size (Number of Images)', fontsize=12)
+        plt.ylabel('Time (Hours)', fontsize=12)
+        plt.title('Database Generation Time vs. Size', fontsize=14)
+        plt.grid(True, linestyle='--', alpha=0.7)
+        plt.legend(fontsize=10)
+        
+        plt.tight_layout()
+        
+        # Ensure output directory exists
+        output_image.parent.mkdir(parents=True, exist_ok=True)
+        
+        plt.savefig(output_image, dpi=300)
+        print(f"Graph saved to {output_image}")
+    except Exception as e:
+        print(f"Error plotting generation time: {e}")
 
 import argparse
 

@@ -33,7 +33,15 @@ app.secret_key = os.environ.get("APP_SECRET_KEY", "dev-secret")
 # --- INITIALIZATION ---
 
 print("--- Initializing Server Services ---")
-record_manager = MedicalRecordManager(_project_root)
+# Check for custom data directory from Environment Variable
+custom_data_path = os.environ.get("SERVER_DATA_DIR")
+if custom_data_path:
+    print(f"--- Using Custom Data Directory: {custom_data_path} ---")
+    data_dir = Path(custom_data_path)
+else:
+    data_dir = None
+
+record_manager = MedicalRecordManager(_project_root, data_dir=data_dir)
 search_service = SearchService(record_manager)
 
 @app.route('/')
@@ -266,5 +274,23 @@ def admin_delete():
     except Exception as e:
         return jsonify({"error": str(e)}), 500
 
+
+@app.route('/admin/reload_db', methods=['POST'])
+def admin_reload_db():
+    """
+    Forces the server to reload the database from disk.
+    Useful for automated experiments switching datasets.
+    """
+    try:
+        print("[Admin] Reloading Database...")
+        # Re-initialize record manager's DB connection
+        # We can access the global record_manager
+        record_manager.reload_database()
+        return jsonify({"ok": True, "message": "Database reloaded"})
+    except Exception as e:
+        print(f"[Admin] Reload failed: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    app.run(host='0.0.0.0', port=5000, debug=False)
