@@ -15,7 +15,7 @@ from apsi import LabeledClient
 from common.config import APSI_PARAMS
 from client.image.tokenizer import MedicalImageTokenizer
 
-SERVER_URL = os.getenv("SERVER_URL", "http://localhost:5000")
+SERVER_URL = os.getenv("SERVER_URL", "http://localhost:5001")
 
 def run_client(image_path, top_k=3):
     # 1. Tokenize

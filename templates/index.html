@@ -353,7 +353,7 @@
             const diag = m.metadata && m.metadata.diagnosis;
             const diagStr = Array.isArray(diag) ? diag.join(', ') : (diag || 'N/A');
             div.innerHTML = `
-              <div><strong>${m.record_id}</strong><span class="badge">score ${m.score}</span></div>
+              <div><strong>${m.record_id}</strong></div>
               <div class="meta">${diagStr}</div>
               <div class="small">${m.metadata && m.metadata.age ? 'Tuổi: ' + m.metadata.age : ''}</div>
             `;
