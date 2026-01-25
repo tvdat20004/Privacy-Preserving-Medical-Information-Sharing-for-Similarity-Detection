@@ -5,17 +5,36 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Đăng nhập Admin</title>
   <style>
-    :root { --bg:#0f172a; --card:#111827; --text:#e5e7eb; --muted:#9ca3af; --border:#1f2937; --accent:#22c55e; --shadow:0 15px 60px rgba(0,0,0,0.35); }
+    :root { 
+      --bg:#f8fafc; 
+      --card:#ffffff; 
+      --text:#0f172a; 
+      --muted:#64748b; 
+      --border:#e2e8f0; 
+      --accent:#16a34a; 
+      --shadow:0 15px 40px rgba(0,0,0,0.08); 
+    }
     *{box-sizing:border-box;}
-    body{margin:0;font-family:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;background:var(--bg);color:var(--text);}
-    .card{width:min(420px,100%);background:var(--card);border:1px solid var(--border);border-radius:14px;padding:22px;box-shadow:var(--shadow);}
-    h1{margin:0 0 6px;font-size:22px;}
-    p{margin:0 0 16px;color:var(--muted);} 
-    label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);}
-    input{padding:12px;border-radius:10px;border:1px solid var(--border);background:#0b1220;color:var(--text);}
-    button{width:100%;border:none;border-radius:10px;padding:12px;font-weight:700;cursor:pointer;color:#0b1220;background:linear-gradient(135deg,var(--accent),#16a34a);margin-top:14px;}
-    .status{margin-top:10px;font-size:13px;color:var(--muted);}
-    a{color:var(--accent);text-decoration:none;font-size:13px;}
+    body{
+      margin:0;
+      font-family:"Inter","Segoe UI",system-ui,-apple-system,sans-serif;
+      min-height:100vh;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:radial-gradient(circle at 50% 50%, rgba(22,163,74,0.08), transparent 40%), var(--bg);
+      color:var(--text);
+    }
+    .card{width:min(420px,100%);background:var(--card);border:1px solid var(--border);border-radius:14px;padding:26px;box-shadow:var(--shadow);}
+    h1{margin:0 0 8px;font-size:24px;letter-spacing:-0.02em;}
+    p{margin:0 0 20px;color:var(--muted);} 
+    label{display:flex;flex-direction:column;gap:6px;font-size:13px;color:var(--muted);font-weight:500;}
+    input{padding:12px;border-radius:10px;border:1px solid var(--border);background:#ffffff;color:var(--text);transition:border-color .15s;}
+    input:focus{outline:none;border-color:var(--accent);}
+    button{width:100%;border:none;border-radius:10px;padding:12px;font-weight:600;cursor:pointer;color:#ffffff;background:linear-gradient(135deg,var(--accent),#15803d);margin-top:20px;transition:opacity .15s;}
+    button:hover{opacity:0.9;}
+    .status{margin-top:14px;font-size:13px;color:var(--muted);text-align:center;}
+    a{color:var(--accent);text-decoration:none;font-size:13px;font-weight:500;}
   </style>
 </head>
 <body>
